@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:http/http.dart' as http;
 
 import '../utils.dart';
 import '../controller/story_controller.dart';
@@ -26,6 +28,31 @@ class ImageLoader {
     if (this.frames != null) {
       this.state = LoadState.success;
       onComplete();
+    }
+    
+    if (kIsWeb) {
+      http.get(Uri.parse(url), headers: requestHeaders?.cast()).then(
+        (http.Response response) {
+          if (response.statusCode == 200) {
+            ui.instantiateImageCodec(response.bodyBytes).then((codec) {
+              this.frames = codec;
+              this.state = LoadState.success;
+              onComplete();
+            }, onError: (error) {
+              this.state = LoadState.failure;
+              onComplete();
+            });
+          } else {
+            this.state = LoadState.failure;
+            onComplete();
+          }
+        },
+        onError: (error) {
+          this.state = LoadState.failure;
+          onComplete();
+        },
+      );
+      return;
     }
 
     final fileStream = DefaultCacheManager().getFileStream(this.url,
